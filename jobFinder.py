@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -6,9 +7,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
 
+from constants import *
 from structs import JobInfo
-
-
 '''
 Main code to scrape data off of indeed.com. Data is retreived 'as is' and 
 will need to be cleaned later if user plans to do data analysis or something
@@ -33,7 +33,7 @@ class jobFinder:
         try:
             self.driver.get(url)
             description = self.driver.find_element_by_id('jobDescriptionText')
-            page_soup =  BeautifulSoup(description.get_attribute('innerHTML'))
+            page_soup = BeautifulSoup(description.get_attribute('innerHTML'), features='html.parser')
         except NoSuchElementException:
             return 'None'
 
@@ -43,9 +43,9 @@ class jobFinder:
     # boolean that rectifies if there is another
     # page in the search results
     def next_page_exists(self):
-        self.driver.implicitly_wait(5)
+        self.driver.implicitly_wait(WAIT_5_SEC)
         self.driver.get(self.current_url)
-        self.driver.implicitly_wait(5)
+        self.driver.implicitly_wait(WAIT_5_SEC)
 
         num_pages = self.driver.find_elements_by_xpath("//*[@aria-label='Next']")
 
@@ -61,7 +61,7 @@ class jobFinder:
         next_page_button = self.driver.find_element_by_xpath("//*[@aria-label='Next']")
         self.driver.execute_script("arguments[0].click();", next_page_button)
 
-        self.driver.implicitly_wait(5)
+        self.driver.implicitly_wait(WAIT_5_SEC)
         self.current_url = self.driver.current_url
 
     # search and collect job listings
@@ -87,7 +87,7 @@ class jobFinder:
         # click the Find Jobs button
         find_jobs_button = self.driver.find_element_by_xpath('//button[text()="Find jobs"]')
         find_jobs_button.click()
-        self.driver.implicitly_wait(5)
+        self.driver.implicitly_wait(WAIT_5_SEC)
 
 
         # get the first page's url right after the search loads results
@@ -97,8 +97,11 @@ class jobFinder:
         # start collecting attributes of job results
         page_num = 1
         rank = 1
+        job_list = []
 
         while 1==1: # infinite loop ensures every single result is scraped
+        #while page_num <=1:
+            print('Current page: ', page_num)
 
             soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
@@ -132,7 +135,7 @@ class jobFinder:
                 try:
                     company_rating = float(job.find('span', attrs={'class':'ratingsContent'}).text.strip().replace(',', '.'))
                 except AttributeError:
-                    company_rating = 'None'
+                    company_rating = 0.00
 
                 # get indeed url
                 url = 'http://indeed.com' + job.find('a', class_="jobtitle turnstileLink")['href']
@@ -140,22 +143,24 @@ class jobFinder:
                 # get description
                 description = self.get_description(url)
 
-                job_info = JobInfo.from_dict({'job_id': job_id,
-                                              'title' : title,
-                                              'company' : company,
-                                              'location' : location,
-                                              'salary' : salary,
-                                              'date_listed' :date_listed,
-                                              'company_rating' :company_rating,
-                                              'rank' : rank,
-                                              'page_num' : page_num,
-                                              'url' : url,
-                                              'description' : description})
-                #place db query here
+                job_info = json.dumps({'job_id' : job_id,
+                                       'title' : title,
+                                       'company' : company,
+                                       'location' : location,
+                                       'salary' : salary,
+                                       'date_listed' : date_listed,
+                                       'date_scraped' : datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                       'company_rating' : company_rating,
+                                       'rank' : rank,
+                                       'page_num' : page_num,
+                                       'url' : url,
+                                       'description' : description})
+                job_list += [job_info]
                 rank +=1
             if self.next_page_exists():
                 self.get_next_page()
                 page_num +=1
             else:
                 break
+        return job_list
         self.driver.close()

@@ -13,6 +13,7 @@ class JobInfo:
     location: str
     salary: str
     date_listed: str
+    date_scraped: datetime
     company_rating: float
     rank: int
     page_num: int
