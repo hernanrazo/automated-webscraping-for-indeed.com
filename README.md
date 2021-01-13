@@ -20,7 +20,7 @@ For each entry, only the jobID, title, company name, location, salary, date list
 
 Database Schema
 ---
-'''
+```
 jobid             varchar(20) primary key
 title             text
 company           text
@@ -33,7 +33,7 @@ rank              real
 pageNum           real
 url               text
 description       text
-'''
+```
 
 See the `structs.py` file for the associated JobInfo struct.
 
